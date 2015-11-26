@@ -59,7 +59,7 @@
 #define RETVAL_END_OF_BLOCK             (-8)
 
 /* Other housekeeping constants */
-#define IOBUF_SIZE   4096
+#define IOBUF_SIZE   40960
 
 /* This is what we know about each huffman coding group */
 struct group_data
@@ -615,7 +615,7 @@ extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
     int i, j;
     unsigned char *s = src, *sEnd = src + len;
 
-    if ( !( outbuf = malloc( IOBUF_SIZE ) ) ) return RETVAL_OUT_OF_MEMORY;
+    if ( !( outbuf = malloc( IOBUF_SIZE + 4 ) ) ) return RETVAL_OUT_OF_MEMORY;
 again:
     if ( !( i = start_bunzip( &bd, -1, s, sEnd - s ) ) ) {
         for ( ;; ) {
