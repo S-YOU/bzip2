@@ -617,7 +617,7 @@ extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
 
     if ( !( outbuf = malloc( IOBUF_SIZE ) ) ) return RETVAL_OUT_OF_MEMORY;
 again:
-    if ( !( i = start_bunzip( &bd, -1, s, len ) ) ) {
+    if ( !( i = start_bunzip( &bd, -1, s, sEnd - s ) ) ) {
         for ( ;; ) {
             if ( ( ( i = init_block( bd ) ) < 0 ) ) {
             	if (s < sEnd) {
@@ -625,7 +625,7 @@ again:
             		while (s < sEnd && *s != 'B' || s[1] != 'Z' || s[2] != 'h'){
             			s++;
             		}
-            		if (s > sEnd) break;
+            		if (s >= sEnd) break;
 //            		fprintf(stderr, "pos: [%c]\n", *s);
             		goto again;
             	}
