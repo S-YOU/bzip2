@@ -631,11 +631,13 @@ extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
 again:
         for ( ;; ) {
             if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
-            	if (s < sEnd - 4) {
-            		s += bd->inbufPos;
-            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h' || s[3] < '0' || s[3] > '9') {
-            			break;
-            		}
+        		s += bd->inbufPos;
+            	if (s < sEnd) {
+//            		if (s >= sEnd) break;
+//            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h' || s[3] < '0' || s[3] > '9') {
+//            			printf("error not bzh0-9: [%x:%x]\n", s, sEnd);
+//            			break;
+//            		}
             		s += 4;
             		bd->inbuf = s;
             		bd->inbufCount = sEnd - s;
