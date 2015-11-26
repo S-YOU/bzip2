@@ -82,14 +82,15 @@ typedef struct
     unsigned char *inbuf /*,*outbuf*/;
     unsigned int inbufBitCount, inbufBits;
     /* The CRC values stored in the block header and calculated from the data */
-    unsigned int crc32Table[256], headerCRC, totalCRC, writeCRC;
+//    unsigned int crc32Table[256], headerCRC, totalCRC, writeCRC;
     /* Intermediate buffer and its size (in bytes) */
     unsigned int *dbuf, dbufSize;
     /* These things are a bit too big to go on the stack */
     unsigned char selectors[32768];   /* nSelectors=15 bits */
     struct group_data groups[MAX_GROUPS]; /* huffman coding tables */
-    unsigned int ln[IOBUF_SIZE];
+    unsigned int ln[128];
     unsigned int lnIndex;
+    int debug;
     /* For I/O error handling */
     jmp_buf jmpbuf;
 }
@@ -153,7 +154,8 @@ int get_next_block( bunzip_data *bd )
        (last block signature means CRC is for whole file, return now) */
     i = get_bits( bd, 24 );
     j = get_bits( bd, 24 );
-    bd->headerCRC = get_bits( bd, 32 );
+    get_bits( bd, 32 );
+//    bd->headerCRC = get_bits( bd, 32 );
     if ( ( i == 0x177245 ) && ( j == 0x385090 ) ) return RETVAL_LAST_BLOCK;
     if ( ( i != 0x314159 ) || ( j != 0x265359 ) ) return RETVAL_NOT_BZIP_DATA;
     /* We can add support for blockRandomised if anybody complains.  There was
@@ -493,14 +495,20 @@ extern int read_bunzip( bunzip_data *bd, char *outbuf, int len )
             if (current == '\n') {
             	bd->ln[bd->lnIndex++] = pos;
             }
-            bd->writeCRC = ( ( ( bd->writeCRC ) << 8 )
-                             ^ bd->crc32Table[( ( bd->writeCRC )>>24 )^current] );
+//            bd->writeCRC = ( ( ( bd->writeCRC ) << 8 )
+//                             ^ bd->crc32Table[( ( bd->writeCRC )>>24 )^current] );
             /* Loop now if we're outputting multiple copies of this byte */
             if ( bd->writeCopies )
             {
                 --bd->writeCopies;
                 continue;
             }
+
+//            if (bd->inbufCount - 1 <= bd->inbufPos + gotcount) {
+//            	fprintf(stderr, "end of buffer\n");
+//            	return RETVAL_LAST_BLOCK;
+//            }
+//            if (bd->debug) fprintf(stderr, "144 %d [%d %d] [%x]\n", gotcount, bd->inbufPos, bd->inbufCount, bd->inbuf[bd->inbufPos + gotcount]);
 decode_next_byte:
             if ( !bd->writeCount-- ) break;
             /* Follow sequence vector to undo Burrows-Wheeler transform */
@@ -528,14 +536,14 @@ decode_next_byte:
             }
         }
         /* Decompression of this block completed successfully */
-        bd->writeCRC = ~bd->writeCRC;
-        bd->totalCRC = ( ( bd->totalCRC << 1 ) | ( bd->totalCRC >> 31 ) ) ^ bd->writeCRC;
-        /* If this block had a CRC error, force file level CRC error. */
-        if ( bd->writeCRC != bd->headerCRC )
-        {
-            bd->totalCRC = bd->headerCRC + 1;
-            return RETVAL_LAST_BLOCK;
-        }
+//        bd->writeCRC = ~bd->writeCRC;
+//        bd->totalCRC = ( ( bd->totalCRC << 1 ) | ( bd->totalCRC >> 31 ) ) ^ bd->writeCRC;
+//        /* If this block had a CRC error, force file level CRC error. */
+//        if ( bd->writeCRC != bd->headerCRC )
+//        {
+//            bd->totalCRC = bd->headerCRC + 1;
+//            return RETVAL_LAST_BLOCK;
+//        }
         /* james@jamestaylor.org -- rather than falling through we return here */
         return gotcount;
     }
@@ -554,7 +562,7 @@ int init_block( bunzip_data *bd )
         bd->writeCount = status;
         return status;
     }
-    bd->writeCRC = 0xffffffffUL;
+//    bd->writeCRC = 0xffffffffUL;
     return RETVAL_OK;
 }
 
@@ -583,13 +591,13 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
     }
     else bd->inbuf = ( unsigned char * )( bd + 1 );
     /* Init the CRC32 table (big endian) */
-    for ( i = 0;i < 256;i++ )
-    {
-        c = i << 24;
-        for ( j = 8;j;j-- )
-            c = c & 0x80000000 ? ( c << 1 ) ^ 0x04c11db7 : ( c << 1 );
-        bd->crc32Table[i] = c;
-    }
+//    for ( i = 0;i < 256;i++ )
+//    {
+//        c = i << 24;
+//        for ( j = 8;j;j-- )
+//            c = c & 0x80000000 ? ( c << 1 ) ^ 0x04c11db7 : ( c << 1 );
+//        bd->crc32Table[i] = c;
+//    }
     /* Setup for I/O error handling via longjmp */
     i = setjmp( bd->jmpbuf );
     if ( i ) return i;
@@ -613,29 +621,41 @@ extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
     char *outbuf;
     bunzip_data *bd;
     int i, j;
-    unsigned char *s = src, *sEnd = src + len;
+    unsigned char *s = src, *sEnd = src + len, *sEndTmp;
+    unsigned int *dbuf, dbufSize;
 
-    if ( !( outbuf = malloc( IOBUF_SIZE + 4 ) ) ) return RETVAL_OUT_OF_MEMORY;
+    if ( !( outbuf = malloc( IOBUF_SIZE ) ) ) return RETVAL_OUT_OF_MEMORY;
+    if ( !( i = start_bunzip( &bd, -1, s, len) ) ) {
 again:
-	fprintf( stderr, "start\n");
-    if ( !( i = start_bunzip( &bd, -1, s, sEnd - s ) ) ) {
         for ( ;; ) {
             if ( ( ( i = init_block( bd ) ) < 0 ) ) {
             	if (s < sEnd) {
+            		sEndTmp = sEnd - 4;
             		s += bd->inbufPos;
-            		while (s < sEnd && *s != 'B' || s[1] != 'Z' || s[2] != 'h'){
+            		while (s < sEndTmp && (*s != 'B' || s[1] != 'Z' || s[2] != 'h')){
             			s++;
             		}
+            		s += 4;
             		if (s >= sEnd) break;
-//            		fprintf(stderr, "pos: [%c]\n", *s);
+            		bd->inbuf = s;
+            		bd->inbufCount = sEnd - s;
+            		bd->inbufPos = 0;
+            		bd->lnIndex = 0;
+            		bd->position = 0;
+            		bd->inbufBitCount = 0;
+            		bd->inbufBits = 0;
+//            		fprintf(stderr, "pos: [%c]: %d\n", *s, sEnd - s);
+//            		if (sEnd - s < 20000) {
+//            			fprintf(stderr, "last block\n");
+//            			bd->debug = 1;
+//            		}
             		goto again;
             	}
             	break;
             }
-            fprintf( stderr, "init: %d\n", i );
             for ( ;; ) {
                 if ( ( i = read_bunzip( bd, outbuf, IOBUF_SIZE ) ) <= 0 ) break;
-                fprintf(stderr, "read: %d, %d %d\n", i, bd->inbufPos, bd->lnIndex);
+//                fprintf(stderr, "read: %d\n", i);
 //                for (j = -150; j < 150; j++) {
 //                	fprintf(stderr, "%x", s[bd->inbufPos + j]);
 //                }
@@ -653,7 +673,7 @@ again:
         }
     }
     /* Check CRC and release memory */
-    if ( i == RETVAL_LAST_BLOCK && bd->headerCRC == bd->totalCRC ) i = RETVAL_OK;
+//    if ( i == RETVAL_LAST_BLOCK && bd->headerCRC == bd->totalCRC ) i = RETVAL_OK;
     if ( bd->dbuf ) free( bd->dbuf );
     free( bd );
     free( outbuf );
