@@ -578,7 +578,7 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 
     /* Figure out how much data to allocate */
     i = sizeof( bunzip_data );
-    if ( in_fd != -1 ) i += IOBUF_SIZE;
+//    if ( in_fd != -1 ) i += IOBUF_SIZE;
     /* Allocate bunzip_data.  Most fields initialize to zero. */
     if ( !( bd = *bdp = malloc( i ) ) ) return RETVAL_OUT_OF_MEMORY;
     memset( bd, 0, sizeof( bunzip_data ) );
@@ -618,25 +618,26 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 /* Example usage: decompress src_fd to dst_fd.  (Stops at end of bzip data,
    not end of file.) */
 extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
-    char *outbuf;
+    char *outbuf, *d;
     bunzip_data *bd;
     int i, j;
     unsigned char *s = src, *sEnd = src + len, *sEndTmp;
     unsigned int *dbuf, dbufSize;
 
-    if ( !( outbuf = malloc( IOBUF_SIZE ) ) ) return RETVAL_OUT_OF_MEMORY;
+    if ( !( outbuf = malloc( 1048576 ) ) )
+    	return RETVAL_OUT_OF_MEMORY;
+    d = outbuf;
+
     if ( !( i = start_bunzip( &bd, -1, s, len) ) ) {
 again:
         for ( ;; ) {
             if ( ( ( i = init_block( bd ) ) < 0 ) ) {
-            	if (s < sEnd) {
-            		sEndTmp = sEnd - 4;
+            	if (s < sEnd - 4) {
             		s += bd->inbufPos;
-            		while (s < sEndTmp && (*s != 'B' || s[1] != 'Z' || s[2] != 'h')){
-            			s++;
+            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h') {
+            			break;
             		}
             		s += 4;
-            		if (s >= sEnd) break;
             		bd->inbuf = s;
             		bd->inbufCount = sEnd - s;
             		bd->inbufPos = 0;
@@ -654,16 +655,9 @@ again:
             	break;
             }
             for ( ;; ) {
-                if ( ( i = read_bunzip( bd, outbuf, IOBUF_SIZE ) ) <= 0 ) break;
-//                fprintf(stderr, "read: %d\n", i);
-//                for (j = -150; j < 150; j++) {
-//                	fprintf(stderr, "%x", s[bd->inbufPos + j]);
-//                }
-//                fprintf(stderr, "\n");
-//                for (j = -150; j < 150; j++) {
-//					fprintf(stderr, "%c ", s[bd->inbufPos + j]);
-//				}
-//                fprintf(stderr, "\n");
+                if ( ( i = read_bunzip( bd, d, IOBUF_SIZE ) ) <= 0 ) break;
+//                d += i;
+//                fprintf(stderr, "read: %d, ln: %d\n", i, bd->lnIndex);
 //                if ( i != write( dst_fd, outbuf, i ) )
 //                {
 //                    i = RETVAL_UNEXPECTED_OUTPUT_EOF;
@@ -672,6 +666,7 @@ again:
             }
         }
     }
+//    fprintf(stderr, "length dst %d\n", d - outbuf);
     /* Check CRC and release memory */
 //    if ( i == RETVAL_LAST_BLOCK && bd->headerCRC == bd->totalCRC ) i = RETVAL_OK;
     if ( bd->dbuf ) free( bd->dbuf );
