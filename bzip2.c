@@ -572,7 +572,7 @@ int init_block( bunzip_data *bd )
 extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int len )
 {
     bunzip_data *bd;
-    unsigned int i, j, c;
+    unsigned int i; //, j, c
     const unsigned int BZh0 = ( ( ( unsigned int )'B' ) << 24 ) + ( ( ( unsigned int )'Z' ) << 16 )
                               + ( ( ( unsigned int )'h' ) << 8 ) + ( unsigned int )'0';
 
@@ -620,9 +620,8 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
     char *outbuf, *d;
     bunzip_data *bd;
-    int i, j;
-    unsigned char *s = src, *sEnd = src + len, *sEndTmp;
-    unsigned int *dbuf, dbufSize;
+    int i;
+    unsigned char *s = src, *sEnd = src + len;
 
     if ( !( outbuf = malloc( 1048576 ) ) )
     	return RETVAL_OUT_OF_MEMORY;
@@ -634,7 +633,7 @@ again:
             if ( ( ( i = init_block( bd ) ) < 0 ) ) {
             	if (s < sEnd - 4) {
             		s += bd->inbufPos;
-            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h') {
+            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h' || s[3] < '0' || s[3] > '9') {
             			break;
             		}
             		s += 4;
@@ -682,11 +681,9 @@ decompress(PyObject* self, PyObject* arg) {
 	unsigned char *src = (unsigned char *) PyString_AS_STRING(arg);
 	size_t srcSize = PyString_GET_SIZE(arg);
 
-	unsigned char *s = src, *sEnd = src + srcSize;
-
 	uncompressStream(src, srcSize, 1);
 
-	return PyString_FromStringAndSize(sEnd, 0);
+	Py_RETURN_NONE;
 }
 
 static PyMethodDef exports[] = {
