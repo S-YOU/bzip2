@@ -32,11 +32,11 @@
  */
 
 #include <setjmp.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <limits.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <string.h>
+//#include <unistd.h>
+//#include <limits.h>
 
 /* Constants for huffman coding */
 #define MAX_GROUPS   6
@@ -90,7 +90,7 @@ typedef struct
     struct group_data groups[MAX_GROUPS]; /* huffman coding tables */
     unsigned int ln[128];
     unsigned int lnIndex;
-    int debug;
+//    int debug;
     /* For I/O error handling */
     jmp_buf jmpbuf;
 }
@@ -551,20 +551,20 @@ decode_next_byte:
     goto decode_next_byte;
 }
 
-int init_block( bunzip_data *bd )
-{
-    int status;
-    /* Refill the intermediate buffer by huffman-decoding next block of input */
-    /* (previous is just a convenient unused temp variable here) */
-    status = get_next_block( bd );
-    if ( status )
-    {
-        bd->writeCount = status;
-        return status;
-    }
-//    bd->writeCRC = 0xffffffffUL;
-    return RETVAL_OK;
-}
+//int init_block( bunzip_data *bd )
+//{
+//    int status;
+//    /* Refill the intermediate buffer by huffman-decoding next block of input */
+//    /* (previous is just a convenient unused temp variable here) */
+//    status = get_next_block( bd );
+//    if ( status )
+//    {
+//        bd->writeCount = status;
+//        return status;
+//    }
+////    bd->writeCRC = 0xffffffffUL;
+//    return RETVAL_OK;
+//}
 
 /* Allocate the structure, read file header.  If in_fd==-1, inbuf must contain
    a complete bunzip file (len bytes long).  If in_fd!=-1, inbuf and len are
@@ -573,8 +573,8 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 {
     bunzip_data *bd;
     unsigned int i; //, j, c
-    const unsigned int BZh0 = ( ( ( unsigned int )'B' ) << 24 ) + ( ( ( unsigned int )'Z' ) << 16 )
-                              + ( ( ( unsigned int )'h' ) << 8 ) + ( unsigned int )'0';
+    const unsigned int BZh0 = 0x425a6830UL; //( ( ( unsigned int )'B' ) << 24 ) + ( ( ( unsigned int )'Z' ) << 16 )
+//                              + ( ( ( unsigned int )'h' ) << 8 ) + ( unsigned int )'0';
 
     /* Figure out how much data to allocate */
     i = sizeof( bunzip_data );
@@ -630,7 +630,7 @@ extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
     if ( !( i = start_bunzip( &bd, -1, s, len) ) ) {
 again:
         for ( ;; ) {
-            if ( ( ( i = init_block( bd ) ) < 0 ) ) {
+            if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
             	if (s < sEnd - 4) {
             		s += bd->inbufPos;
             		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h' || s[3] < '0' || s[3] > '9') {
