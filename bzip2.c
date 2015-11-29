@@ -621,14 +621,6 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 
 #define NUM_THREADS 4
 
-bunzip_data* init_instance(unsigned char *src, size_t len) {
-	bunzip_data *bd;
-	if (start_bunzip(&bd, -1, src, len) < 0) {
-		fprintf(stderr, "start bunzip error\n");
-	}
-	return bd;
-}
-
 char *buffer;
 bunzip_data *instances[NUM_THREADS];
 unsigned char *chunks[1024];
