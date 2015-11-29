@@ -706,7 +706,7 @@ decompress(PyObject* self, PyObject* arg) {
 		}
 	}
 
-	size_t size = chunk_length * instances[0]->dbufSize;
+	size_t size = (chunk_length + 1) * instances[0]->dbufSize;
 	PyStringObject *str = (PyStringObject *) PyObject_MALLOC(sizeof(PyStringObject) + size);
 	if (str == NULL) return PyErr_NoMemory();
 	PyObject_INIT_VAR(str, &PyString_Type, size);
