@@ -643,7 +643,7 @@ void * cont_instance(void *threadid) {
 
 	while (chunk_index < chunk_length) {
 		j = chunk_index++;
-		src = chunks[j], sEnd = chunks[j+1];
+		src = chunks[j], sEnd = chunks[j+1] - 1;
 		d = dst = buffer + j * bd->dbufSize;
 //		printf("cont_instance[%d]: %d, %d, [%x:%x]: %d, %c\n", threadid, j, chunk_index, chunk_length, src, sEnd, sEnd - src, *src);
 		if (bd->inbufPos) {
@@ -691,7 +691,7 @@ decompress(PyObject* self, PyObject* arg) {
 	chunk_index = 0;
 	chunk_length = 0;
 
-	while (s < sEnd) {
+	while (s < sEnd - 4) {
 		if (*s == 'B' && s[1] == 'Z' && s[2] == 'h' && s[3] >= '0' && s[3] <= '9') {
 			chunks[chunk_length++] = s; s+= 40000;
 		}
