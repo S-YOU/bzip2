@@ -3,7 +3,7 @@ from distutils.core import setup, Extension
 ext = Extension('bzip2', 
     sources=['bzip2.c'],
     extra_compile_args=['-O3', '-std=c99', '-Ofast'],
-    extra_link_args=["-s"],
+    extra_link_args=["-s", "-pthread"],
     language="c",
 )
 

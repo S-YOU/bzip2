@@ -31,6 +31,7 @@
  Manuel
  */
 
+#include <pthread.h>
 #include <setjmp.h>
 //#include <stdio.h>
 //#include <stdlib.h>
@@ -88,6 +89,7 @@ typedef struct
     /* These things are a bit too big to go on the stack */
     unsigned char selectors[32768];   /* nSelectors=15 bits */
     struct group_data groups[MAX_GROUPS]; /* huffman coding tables */
+    unsigned int out_len;
     unsigned int ln[128];
     unsigned int lnIndex;
 //    int debug;
@@ -157,7 +159,7 @@ int get_next_block( bunzip_data *bd )
     get_bits( bd, 32 );
 //    bd->headerCRC = get_bits( bd, 32 );
     if ( ( i == 0x177245 ) && ( j == 0x385090 ) ) return RETVAL_LAST_BLOCK;
-    if ( ( i != 0x314159 ) || ( j != 0x265359 ) ) return RETVAL_NOT_BZIP_DATA;
+    if ( ( i != 0x314159 ) || ( j != 0x265359 ) ) return RETVAL_NOT_BZIP_DATA; //1AY &SY
     /* We can add support for blockRandomised if anybody complains.  There was
        some code for this in busybox 1.0.0-pre3, but nobody ever noticed that
        it didn't actually work. */
@@ -612,80 +614,127 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 
     if ( !( bd->dbuf = malloc( bd->dbufSize * sizeof( int ) ) ) )
         return RETVAL_OUT_OF_MEMORY;
+
+//    printf("start bunzip ok\n");
     return RETVAL_OK;
 }
 
-/* Example usage: decompress src_fd to dst_fd.  (Stops at end of bzip data,
-   not end of file.) */
-extern int uncompressStream(unsigned char *src, size_t len, int dst_fd ) {
-    char *outbuf, *d;
-    bunzip_data *bd;
-    int i;
-    unsigned char *s = src, *sEnd = src + len;
+#define NUM_THREADS 4
 
-    if ( !( outbuf = malloc( 1048576 ) ) )
-    	return RETVAL_OUT_OF_MEMORY;
-    d = outbuf;
+bunzip_data* init_instance(unsigned char *src, size_t len) {
+	bunzip_data *bd;
+	if (start_bunzip(&bd, -1, src, len) < 0) {
+		fprintf(stderr, "start bunzip error\n");
+	}
+	return bd;
+}
 
-    if ( !( i = start_bunzip( &bd, -1, s, len) ) ) {
-again:
-        for ( ;; ) {
-            if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
-        		s += bd->inbufPos;
-            	if (s < sEnd) {
-//            		if (s >= sEnd) break;
-//            		if (*s != 'B' || s[1] != 'Z' || s[2] != 'h' || s[3] < '0' || s[3] > '9') {
-//            			printf("error not bzh0-9: [%x:%x]\n", s, sEnd);
-//            			break;
-//            		}
-            		s += 4;
-            		bd->inbuf = s;
-            		bd->inbufCount = sEnd - s;
-            		bd->inbufPos = 0;
-            		bd->lnIndex = 0;
-            		bd->position = 0;
-            		bd->inbufBitCount = 0;
-            		bd->inbufBits = 0;
-//            		fprintf(stderr, "pos: [%c]: %d\n", *s, sEnd - s);
-//            		if (sEnd - s < 20000) {
-//            			fprintf(stderr, "last block\n");
-//            			bd->debug = 1;
-//            		}
-            		goto again;
-            	}
-            	break;
-            }
-            for ( ;; ) {
-                if ( ( i = read_bunzip( bd, d, IOBUF_SIZE ) ) <= 0 ) break;
-//                d += i;
-//                fprintf(stderr, "read: %d, ln: %d\n", i, bd->lnIndex);
-//                if ( i != write( dst_fd, outbuf, i ) )
-//                {
-//                    i = RETVAL_UNEXPECTED_OUTPUT_EOF;
-//                    break;
-//                }
-            }
-        }
-    }
-//    fprintf(stderr, "length dst %d\n", d - outbuf);
-    /* Check CRC and release memory */
-//    if ( i == RETVAL_LAST_BLOCK && bd->headerCRC == bd->totalCRC ) i = RETVAL_OK;
-    if ( bd->dbuf ) free( bd->dbuf );
-    free( bd );
-    free( outbuf );
-    return i;
+char *buffer;
+bunzip_data *instances[NUM_THREADS];
+unsigned char *chunks[1024];
+size_t chunk_index, chunk_length;
+
+void * cont_instance(void *threadid) {
+	int i = 0, j = 0;
+	long k = (long) threadid;
+	unsigned char *src, *sEnd;
+	bunzip_data *bd = instances[k];
+	char *dst, *d;
+
+	while (chunk_index < chunk_length) {
+		j = chunk_index++;
+		src = chunks[j], sEnd = chunks[j+1];
+		d = dst = buffer + j * bd->dbufSize;
+//		printf("cont_instance[%d]: %d, %d, [%x:%x]: %d, %c\n", threadid, j, chunk_index, chunk_length, src, sEnd, sEnd - src, *src);
+		if (bd->inbufPos) {
+			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h') src += 4;
+			bd->inbufPos = 0;
+			bd->lnIndex = 0;
+			bd->position = 0;
+			bd->inbufBitCount = 0;
+			bd->inbufBits = 0;
+		}
+		bd->inbuf = src;
+		bd->inbufCount = sEnd - src;
+		for ( ;; ) {
+			if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
+//				fprintf(stderr, "next_block error: %d\n", i);
+				break;
+			}
+//			printf("result: %d\n", i);
+			for ( ;; ) {
+//				printf("[%d] buffer %d, %x-%x\n", k, j, buffer, buffer + j * bd->dbufSize);
+				if ( ( i = read_bunzip( bd, d, IOBUF_SIZE ) ) <= 0 ) {
+//					fprintf(stderr, "read error: %d", i);
+					break;
+				}
+				d += i;
+//				printf("[%d] read %d bytes\n", k, i);
+			}
+		}
+		bd->out_len += d - dst;
+//		break;
+	}
+	pthread_exit(NULL);
 }
 
 static PyObject*
 decompress(PyObject* self, PyObject* arg) {
 	if (!PyString_CheckExact(arg)) return NULL;
 
-	unsigned char *src = (unsigned char *) PyString_AS_STRING(arg);
-	size_t srcSize = PyString_GET_SIZE(arg);
+	pthread_t threads[NUM_THREADS];
+	unsigned char *src = (unsigned char*) PyString_AS_STRING(arg);
+	size_t len = PyString_GET_SIZE(arg);
+	long j = 0;
+	int out_len = 0;
+	unsigned char *s = src, *sEnd = src + len;
+	chunk_index = 0;
+	chunk_length = 0;
 
-	uncompressStream(src, srcSize, 1);
+	while (s < sEnd) {
+		if (*s == 'B' && s[1] == 'Z' && s[2] == 'h' && s[3] >= '0' && s[3] <= '9') {
+			chunks[chunk_length++] = s; s+= 40000;
+		}
+		s++;
+	}
+	chunks[chunk_length] = sEnd;
 
-	Py_RETURN_NONE;
+	for (j = 0; j < NUM_THREADS; j++) {
+		if (start_bunzip(&instances[j], -1, chunks[j], chunks[j+1] - chunks[j]) < 0) {
+			fprintf(stderr, "start_bunzip error\n");
+			return NULL;
+		}
+	}
+
+	size_t size = chunk_length * instances[0]->dbufSize;
+	PyStringObject *str = (PyStringObject *) PyObject_MALLOC(sizeof(PyStringObject) + size);
+	if (str == NULL) return PyErr_NoMemory();
+	PyObject_INIT_VAR(str, &PyString_Type, size);
+	str->ob_shash = -1;
+	str->ob_sstate = SSTATE_NOT_INTERNED;
+	buffer = str->ob_sval;
+
+	for (j = 0; j < NUM_THREADS; j++) {
+		if (pthread_create(threads + j, NULL, cont_instance, (void *) j)) {
+			fprintf(stderr, "pthread error\n");
+			return NULL;
+		}
+	}
+	for (j = 0; j < NUM_THREADS; j++) {
+		pthread_join(threads[j], NULL);
+	}
+
+	for (j = 0; j < NUM_THREADS; j++) {
+		out_len += instances[j]->out_len;
+		free(instances[j]->dbuf);
+		free(instances[j]);
+	}
+
+	str->ob_size = out_len;
+	str->ob_sval[out_len] = 0;
+	Py_INCREF(str);
+
+	return (PyObject*) str;
 }
 
 static PyMethodDef exports[] = {
