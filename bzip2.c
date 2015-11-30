@@ -31,6 +31,10 @@
  Manuel
  */
 
+/*
+ * Added pthreads and made python library by S-YOU
+ */
+
 #include <pthread.h>
 #include <setjmp.h>
 //#include <stdio.h>
