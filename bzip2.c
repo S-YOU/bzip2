@@ -632,13 +632,13 @@ unsigned char *chunks[1024];
 size_t chunk_length;
 
 void * cont_instance(void *threadid) {
-	int i = 0, j = 0;
+	int i = 0;
 	long k = (long) threadid;
 	unsigned char *src, *sEnd;
 	bunzip_data *bd = instances[k];
 	char *dst, *d;
 
-	bd->chunk_index = threadid;
+	bd->chunk_index = (unsigned int) threadid;
 
 	while (bd->chunk_index < chunk_length) {
 		src = chunks[bd->chunk_index], sEnd = chunks[bd->chunk_index+1] - 1;
