@@ -94,8 +94,8 @@ typedef struct
 	unsigned char selectors[32768];   /* nSelectors=15 bits */
 	struct group_data groups[MAX_GROUPS]; /* huffman coding tables */
 	unsigned int out_len;
-	unsigned int ln[128];
-	unsigned int lnIndex;
+//	unsigned int *ln;
+//	unsigned int lnIndex;
 	unsigned int chunk_index;
 //	int debug;
 	/* For I/O error handling */
@@ -499,9 +499,9 @@ extern int read_bunzip( bunzip_data *bd, char *outbuf, int len )
 				return len;
 			}
 			outbuf[gotcount++] = current;
-			if (current == '\n') {
-				bd->ln[bd->lnIndex++] = pos;
-			}
+//			if (current == '\n') {
+//				bd->ln[bd->lnIndex++] = pos;
+//			}
 //			bd->writeCRC = ( ( ( bd->writeCRC ) << 8 )
 //							 ^ bd->crc32Table[( ( bd->writeCRC )>>24 )^current] );
 			/* Loop now if we're outputting multiple copies of this byte */
@@ -594,7 +594,7 @@ extern int start_bunzip( bunzip_data **bdp, int in_fd, unsigned char *inbuf, int
 	{
 		bd->inbuf = inbuf;
 		bd->inbufCount = len;
-		bd->lnIndex = 0;
+//		bd->lnIndex = 0;
 	}
 	else bd->inbuf = ( unsigned char * )( bd + 1 );
 	/* Init the CRC32 table (big endian) */
@@ -647,7 +647,7 @@ void * cont_instance(void *threadid) {
 		if (bd->inbufPos) {
 			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h') src += 4;
 			bd->inbufPos = 0;
-			bd->lnIndex = 0;
+//			bd->lnIndex = 0;
 			bd->position = 0;
 			bd->inbufBitCount = 0;
 			bd->inbufBits = 0;
@@ -697,6 +697,12 @@ decompress(PyObject* self, PyObject* arg) {
 		s++;
 	}
 	chunks[chunk_length] = sEnd;
+//	for (j = 0; j < chunk_length; j++) {
+//		if (chunks[j+1] - chunks[j] <= 40000) {
+//			s = chunks[j] + 4;
+//			printf("%x-%x: %d, %c%c%c%c\n", chunks[j], chunks[j+1], chunks[j+1] - chunks[j], *s, s[1], s[2], s[3]);
+//		}
+//	}
 //	printf("2\n");
 
 	for (j = 0; j < NUM_THREADS; j++) {
