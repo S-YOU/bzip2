@@ -164,7 +164,7 @@ int get_next_block( bunzip_data *bd )
 	get_bits( bd, 32 );
 //	bd->headerCRC = get_bits( bd, 32 );
 	if ( ( i == 0x177245 ) && ( j == 0x385090 ) ) return RETVAL_LAST_BLOCK;
-	if ( ( i != 0x314159 ) || ( j != 0x265359 ) ) return RETVAL_NOT_BZIP_DATA; //1AY &SY
+	if ( ( i != 0x314159 ) || ( j != 0x265359 ) ) return RETVAL_NOT_BZIP_DATA;
 	/* We can add support for blockRandomised if anybody complains.  There was
 	   some code for this in busybox 1.0.0-pre3, but nobody ever noticed that
 	   it didn't actually work. */
@@ -634,7 +634,7 @@ size_t chunk_length;
 void * cont_instance(void *threadid) {
 	int i = 0;
 	long k = (long) threadid;
-	unsigned char *src, *sEnd;
+	unsigned char *src, *sEnd, *s;
 	bunzip_data *bd = instances[k];
 	char *dst, *d;
 
@@ -645,7 +645,12 @@ void * cont_instance(void *threadid) {
 		d = dst = buffer + bd->chunk_index * bd->dbufSize;
 //		printf("cont_instance[%d]: %d, %d, [%x:%x]: %d, %c\n", threadid, j, chunk_index, chunk_length, src, sEnd, sEnd - src, *src);
 		if (bd->inbufPos) {
-			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h') src += 4;
+			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h' && src[3] >= '0' && src[3] <= '9') {
+//				bd->dbufSize = 100000 * (src[3] - '0');
+				src += 4;
+				s = src;
+//				printf("next block: %x, %d, %x %x %x %x %x %x %x %x\n", src, sEnd - src, *s, s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
+			}
 			bd->inbufPos = 0;
 //			bd->lnIndex = 0;
 			bd->position = 0;
@@ -656,14 +661,14 @@ void * cont_instance(void *threadid) {
 		bd->inbufCount = sEnd - src;
 		for ( ;; ) {
 			if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
-//				fprintf(stderr, "next_block error: %d\n", i);
+				if (i < -1) fprintf(stderr, "next_block error: %d\n", i);
 				break;
 			}
 //			printf("result: %d\n", i);
 			for ( ;; ) {
 //				printf("[%d] buffer %d, %x-%x\n", k, j, buffer, buffer + j * bd->dbufSize);
 				if ( ( i = read_bunzip( bd, d, IOBUF_SIZE ) ) <= 0 ) {
-//					fprintf(stderr, "read error: %d", i);
+					if (i < -1) fprintf(stderr, "read error: %d", i);
 					break;
 				}
 				d += i;
@@ -691,17 +696,18 @@ decompress(PyObject* self, PyObject* arg) {
 //	printf("1\n");
 
 	while (s < sEnd - 4) {
-		if (*s == 'B' && s[1] == 'Z' && s[2] == 'h' && s[3] >= '0' && s[3] <= '9') {
+		if (*s == 'B' && s[1] == 'Z' && s[2] == 'h' && s[3] >= '1' && s[3] <= '9' && s[4] == '1' && s[5] == 'A' && s[6] == 'Y') {
 			chunks[chunk_length++] = s; s+= IOBUF_SIZE;
 		}
 		s++;
 	}
 	chunks[chunk_length] = sEnd;
+
 //	for (j = 0; j < chunk_length; j++) {
-//		if (chunks[j+1] - chunks[j] <= 40000) {
-//			s = chunks[j] + 4;
-//			printf("%x-%x: %d, %c%c%c%c\n", chunks[j], chunks[j+1], chunks[j+1] - chunks[j], *s, s[1], s[2], s[3]);
-//		}
+////		if (chunks[j+1] - chunks[j] <= 40000) {
+//			s = chunks[j];
+//			printf("%x-%x: %d, %c %c %c %c %c %c %x %x\n", chunks[j], chunks[j+1], chunks[j+1] - chunks[j], *s, s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
+////		}
 //	}
 //	printf("2\n");
 
