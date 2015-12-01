@@ -692,7 +692,7 @@ decompress(PyObject* self, PyObject* arg) {
 
 	while (s < sEnd - 4) {
 		if (*s == 'B' && s[1] == 'Z' && s[2] == 'h' && s[3] >= '0' && s[3] <= '9') {
-			chunks[chunk_length++] = s; s+= 40000;
+			chunks[chunk_length++] = s; s+= IOBUF_SIZE;
 		}
 		s++;
 	}
