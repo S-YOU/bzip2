@@ -634,7 +634,7 @@ size_t chunk_length;
 void * cont_instance(void *threadid) {
 	int i = 0;
 	long k = (long) threadid;
-	unsigned char *src, *sEnd, *s;
+	unsigned char *src, *sEnd;
 	bunzip_data *bd = instances[k];
 	char *dst, *d;
 
@@ -645,12 +645,15 @@ void * cont_instance(void *threadid) {
 		d = dst = buffer + bd->chunk_index * bd->dbufSize;
 //		printf("cont_instance[%d]: %d, %d, [%x:%x]: %d, %c\n", threadid, j, chunk_index, chunk_length, src, sEnd, sEnd - src, *src);
 		if (bd->inbufPos) {
-			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h' && src[3] >= '0' && src[3] <= '9') {
-//				bd->dbufSize = 100000 * (src[3] - '0');
-				src += 4;
-				s = src;
-//				printf("next block: %x, %d, %x %x %x %x %x %x %x %x\n", src, sEnd - src, *s, s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
-			}
+//			if (*src == 'B' && src[1] == 'Z' && src[2] == 'h' && src[3] >= '0' && src[3] <= '9') {
+////				bd->dbufSize = 100000 * (src[3] - '0');
+//				src += 4;
+////				s = src;
+////				printf("next block: %x, %d, %x %x %x %x %x %x %x %x\n", src, sEnd - src, *s, s[1], s[2], s[3], s[4], s[5], s[6], s[7]);
+//			} else {
+//				printf("IMPOSSIBLE: %x\n", src);
+//			}
+			src += 4;
 			bd->inbufPos = 0;
 //			bd->lnIndex = 0;
 			bd->position = 0;
