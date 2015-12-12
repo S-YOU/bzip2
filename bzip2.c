@@ -693,7 +693,7 @@ decompress(PyObject* self, PyObject* arg) {
 	unsigned char *src = (unsigned char*) PyString_AS_STRING(arg);
 	size_t len = PyString_GET_SIZE(arg);
 	long j = 0;
-	int out_len = 0;
+	int out_len = 0, num_threads = NUM_THREADS;
 	unsigned char *s = src, *sEnd = src + len;
 	chunk_length = 0;
 //	printf("1\n");
@@ -705,6 +705,7 @@ decompress(PyObject* self, PyObject* arg) {
 		s++;
 	}
 	chunks[chunk_length] = sEnd;
+	if (num_threads > chunk_length) num_threads = chunk_length;
 
 //	for (j = 0; j < chunk_length; j++) {
 ////		if (chunks[j+1] - chunks[j] <= 40000) {
@@ -714,7 +715,7 @@ decompress(PyObject* self, PyObject* arg) {
 //	}
 //	printf("2\n");
 
-	for (j = 0; j < NUM_THREADS; j++) {
+	for (j = 0; j < num_threads; j++) {
 		if (start_bunzip(&instances[j], -1, chunks[j], chunks[j+1] - chunks[j]) < 0) {
 			fprintf(stderr, "start_bunzip error\n");
 			return NULL;
@@ -731,18 +732,18 @@ decompress(PyObject* self, PyObject* arg) {
 	buffer = str->ob_sval;
 //	printf("4\n");
 
-	for (j = 0; j < NUM_THREADS; j++) {
-		if (pthread_create(threads + j, NULL, cont_instance, (void *) j)) {
+	for (j = 0; j < num_threads; j++) {
+		if (pthread_create(&threads[j], NULL, cont_instance, (void *) j)) {
 			fprintf(stderr, "pthread error\n");
 			return NULL;
 		}
 	}
-	for (j = 0; j < NUM_THREADS; j++) {
+	for (j = 0; j < num_threads; j++) {
 		pthread_join(threads[j], NULL);
 	}
 //	printf("5\n");
 
-	for (j = 0; j < NUM_THREADS; j++) {
+	for (j = 0; j < num_threads; j++) {
 //		printf("5.5: %d\n", instances[j]->out_len);
 		out_len += instances[j]->out_len;
 		free(instances[j]->dbuf);
