@@ -36,6 +36,7 @@
  */
 
 #include <pthread.h>
+#include <unistd.h>
 #include <setjmp.h>
 //#include <stdio.h>
 //#include <stdlib.h>
@@ -759,8 +760,19 @@ decompress(PyObject* self, PyObject* arg) {
 	return (PyObject*) str;
 }
 
+static PyObject*
+exists(PyObject* self, PyObject* arg) {
+	if (!PyString_CheckExact(arg)) return NULL;
+
+	if (access(PyString_AS_STRING(arg), F_OK) != -1) {
+		Py_RETURN_TRUE;
+	}
+	Py_RETURN_FALSE;
+}
+
 static PyMethodDef exports[] = {
 	{"decompress", (PyCFunction)decompress, METH_O, "decompress bzip2"},
+	{"exists", (PyCFunction)exists, METH_O, "file exists"},
 	{NULL, NULL}
 };
 
