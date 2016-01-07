@@ -97,7 +97,7 @@ typedef struct
 	unsigned int out_len;
 //	unsigned int *ln;
 //	unsigned int lnIndex;
-	unsigned int chunk_index;
+	unsigned long chunk_index;
 //	int debug;
 	/* For I/O error handling */
 	jmp_buf jmpbuf;
@@ -639,7 +639,7 @@ void * cont_instance(void *threadid) {
 	bunzip_data *bd = instances[k];
 	char *dst, *d;
 
-	bd->chunk_index = (unsigned int) threadid;
+	bd->chunk_index = (unsigned long) threadid;
 
 	while (bd->chunk_index < chunk_length) {
 		src = chunks[bd->chunk_index], sEnd = chunks[bd->chunk_index+1] - 1;
@@ -665,14 +665,14 @@ void * cont_instance(void *threadid) {
 		bd->inbufCount = sEnd - src;
 		for ( ;; ) {
 			if ( ( ( i = get_next_block( bd ) ) < 0 ) ) {
-				if (i < -1) fprintf(stderr, "next_block error: %d\n", i);
+//				if (i < -1) printf("next_block error: %d\n", i);
 				break;
 			}
 //			printf("result: %d\n", i);
 			for ( ;; ) {
 //				printf("[%d] buffer %d, %x-%x\n", k, j, buffer, buffer + j * bd->dbufSize);
 				if ( ( i = read_bunzip( bd, d, IOBUF_SIZE ) ) <= 0 ) {
-					if (i < -1) fprintf(stderr, "read error: %d", i);
+//					if (i < -1) printf("read error: %d", i);
 					break;
 				}
 				d += i;
@@ -718,7 +718,7 @@ decompress(PyObject* self, PyObject* arg) {
 
 	for (j = 0; j < num_threads; j++) {
 		if (start_bunzip(&instances[j], -1, chunks[j], chunks[j+1] - chunks[j]) < 0) {
-			fprintf(stderr, "start_bunzip error\n");
+//			printf("start_bunzip error\n");
 			return NULL;
 		}
 	}
@@ -735,7 +735,7 @@ decompress(PyObject* self, PyObject* arg) {
 
 	for (j = 0; j < num_threads; j++) {
 		if (pthread_create(&threads[j], NULL, cont_instance, (void *) j)) {
-			fprintf(stderr, "pthread error\n");
+//			printf("pthread error\n");
 			return NULL;
 		}
 	}
