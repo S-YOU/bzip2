@@ -9,7 +9,8 @@ ext = Extension('bzip2',
 
 setup(
     name='bzip2', 
-    author='S-YOU', author_email='S-YOU@users.noreply.github.com', 
+    author='S-YOU', author_email='S-YOU@users.noreply.github.com',
+    description='bzip2 decompress + pthreads, python bindings',
     version='0.0.1', 
     url = 'https://github.com/S-YOU/bzip2',
     download_url = 'https://github.com/S-YOU/bzip2/tarball/master',
